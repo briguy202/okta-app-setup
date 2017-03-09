@@ -1,0 +1,105 @@
+<html>
+<head>
+    <script type="text/javascript">
+        function stageToDashed(stage) {
+            return (stage) ? '-'+stage : '';
+        }
+
+        function execute() {
+            var oktaorg = document.getElementById('oktaorg').value;
+            var oktaapikey = document.getElementById('oktaapikey').value;
+            var environment = document.getElementById('environment').value;
+            var instance = document.getElementById('instance').value;
+            var locale = document.getElementById('locale').value;
+            var region = document.getElementById('region').value;
+            var stage = document.getElementById('stage').value;
+
+            var redirectUrl = `https://account-${locale.toLowerCase()}-${region.toLowerCase()}-${environment.toLowerCase()}${stageToDashed(stage).toLowerCase()}.preprod.corp.amway.net/`;
+            var samlUrl = `https://amway-demo-${environment.toLowerCase()}${stageToDashed(stage).toLowerCase()}-${instance.toLowerCase()}.azurewebsites.net/Login.ashx`;
+
+            var area = document.getElementById('area');
+            var body = document.getElementsByTagName('body')[0];
+
+            var template = `{
+  "label": "DemoApp - ${environment}${stageToDashed(stage)} - ${instance}",
+  "accessibility": {
+    "selfService": false,
+    "errorRedirectUrl": null,
+    "loginRedirectUrl": "${redirectUrl}"
+  },
+  "visibility": {
+    "autoSubmitToolbar": false,
+    "hide": {
+      "iOS": true,
+      "web": true
+    }
+  },
+  "signOnMode": "SAML_2_0",
+  "settings": {
+    "signOn": {
+      "defaultRelayState": "",
+      "ssoAcsUrl": "${samlUrl}",
+      "idpIssuer": "http://www.okta.com/$\{org.externalKey\}",
+      "audience": "${samlUrl}",
+      "recipient": "${samlUrl}",
+      "destination": "${samlUrl}",
+      "subjectNameIdTemplate": "$\{user.userName\}",
+      "subjectNameIdFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+      "responseSigned": true,
+      "assertionSigned": true,
+      "signatureAlgorithm": "RSA_SHA256",
+      "digestAlgorithm": "SHA256",
+      "honorForceAuthn": true,
+      "authnContextClassRef": "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+      "spIssuer": null,
+      "requestCompressed": false,
+      "attributeStatements": [
+        {
+          "type": "EXPRESSION",
+          "name": "PartyId",
+          "namespace": "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified",
+          "values": [
+            "user.partyId"
+          ]
+        }
+      ]
+    }
+  }
+}`;
+
+            let request = `https://${oktaorg}/api/v1/apps`;
+
+            fetch(request, {
+                method: 'POST',
+                headers: new Headers({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': `SSWS ${oktaapikey}`,
+                    'Origin': 'foo'
+                })
+            })
+                .then(function(response) {
+                    console.log(response);
+                });
+
+
+            area.value = template;
+        }
+    </script>
+</head>
+<body style="margin: 15px;">
+    <div>
+        <p>Okta Org: <input type="text" id="oktaorg" value="dev-787589.oktapreview.com" /></p>
+        <p>API Key: <input type="text" id="oktaapikey" value="" /></p>
+        <p>Environment: <input type="text" id="environment" value="QA" /></p>
+        <p>Instance: <input type="text" id="instance" value="Walter" /></p>
+        <p>Locale: <input type="text" id="locale" value="Americas" /></p>
+        <p>Region: <input type="text" id="region" value="USEast1" /></p>
+        <p>Stage: <input type="text" id="stage" value="Blue1" /></p>
+        <button onclick="execute()">Submit</button>
+
+        <h2>App Setup</h2>
+        <textarea id="area" rows="25" cols="150"></textarea>
+    </div>
+</body>
+</html>

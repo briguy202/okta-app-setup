@@ -2,12 +2,12 @@
 <head>
     <script type="text/javascript">
         function stageToDashed(stage) {
-            return (stage) ? '-'+stage : '';
+            return (stage) ? '-' + stage : '';
         }
 
         function execute() {
-            var oktaorg = document.getElementById('oktaorg').value;
-            var oktaapikey = document.getElementById('oktaapikey').value;
+//            var oktaorg = document.getElementById('oktaorg').value;
+//            var oktaapikey = document.getElementById('oktaapikey').value;
             var environment = document.getElementById('environment').value;
             var instance = document.getElementById('instance').value;
             var locale = document.getElementById('locale').value;
@@ -67,39 +67,63 @@
   }
 }`;
 
-            let request = `https://${oktaorg}/api/v1/apps`;
-
-            fetch(request, {
-                method: 'POST',
-                headers: new Headers({
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization': `SSWS ${oktaapikey}`,
-                    'Origin': 'foo'
-                })
-            })
-                .then(function(response) {
-                    console.log(response);
-                });
-
+//            let request = `https://${oktaorg}/api/v1/apps`;
+//
+//            fetch(request, {
+//                method: 'POST',
+//                headers: new Headers({
+//                    'Accept': 'application/json',
+////                    'Content-Type': 'application/json',
+//                    'Authorization': `SSWS ${oktaapikey}`,
+//                    'Origin': 'foo'
+//                }),
+//                mode: 'cors',
+//                cache: 'default'
+//            })
+//                .then(function(response) {
+//                    console.log(response);
+//                });
 
             area.value = template;
         }
     </script>
 </head>
 <body style="margin: 15px;">
-    <div>
-        <p>Okta Org: <input type="text" id="oktaorg" value="dev-787589.oktapreview.com" /></p>
-        <p>API Key: <input type="text" id="oktaapikey" value="" /></p>
-        <p>Environment: <input type="text" id="environment" value="QA" /></p>
-        <p>Instance: <input type="text" id="instance" value="Walter" /></p>
-        <p>Locale: <input type="text" id="locale" value="Americas" /></p>
-        <p>Region: <input type="text" id="region" value="USEast1" /></p>
-        <p>Stage: <input type="text" id="stage" value="Blue1" /></p>
-        <button onclick="execute()">Submit</button>
+<div>
+    <!--<p>Okta Org:-->
+    <!--<select id="oktaorg">-->
+    <!--<option value="dev-787589.oktapreview.com">dev-787589.oktapreview.com</option>-->
+    <!--<option value="amwayconnect-test.oktapreview.com">amwayconnect-test.oktapreview.com</option>-->
+    <!--<option value="amwayconnect-qa.oktapreview.com">amwayconnect-qa.oktapreview.com</option>-->
+    <!--</select>-->
+    <!--</p>-->
+    <!--<p>API Key: <input type="text" id="oktaapikey" value="" /></p>-->
+    <p>Environment: <select id="environment">
+        <option>Test</option>
+        <option>QA</option>
+    </select></p>
+    <p>Instance: <select id="instance">
+        <option>Walter</option>
+        <option>TheDude</option>
+    </select></p>
+    <p>Locale: <select id="locale">
+        <option>Americas</option>
+        <option>Asia</option>
+        <option>Europe</option>
+    </select></p>
+    <p>Region: <select id="region">
+        <option>USEast1</option>
+        <option>USWest2</option>
+    </select></p>
+    <p>Stage: <select id="stage">
+        <option></option>
+        <option>Blue1</option>
+        <option>Green1</option>
+    </select></p>
+    <button onclick="execute()">Submit</button>
 
-        <h2>App Setup</h2>
-        <textarea id="area" rows="25" cols="150"></textarea>
-    </div>
+    <h2>App Setup</h2>
+    <textarea id="area" rows="25" cols="150"></textarea>
+</div>
 </body>
 </html>

@@ -39,17 +39,26 @@
             let azureWebsiteName = `https://${azureName}.azurewebsites.net`;
             let azureCert =
                 (environment === 'Test') ? '04EE9975E7EEDB5749C3F13F546EB99611A853D9' :
-                (environment === 'QA') ? '6C0F5EA2F9FB716264040C39A4A2985D4F4FA49A' : '';
+                (environment === 'QA') ? '6C0F5EA2F9FB716264040C39A4A2985D4F4FA49A' :
+                '';
 
             let oktaRedirectUrl =
                 (!stage && region === 'USEast1') ? `https://account-${environment.toLowerCase()}.amwayglobal.com` :
                     `https://account-${locale.toLowerCase()}-${region.toLowerCase()}-${environment.toLowerCase()}${stage.toDashed().toLowerCase()}.preprod.corp.amway.net/`;
             let oktaSAMLUrl = `${azureWebsiteName}/Login.ashx`;
             let oktaOrg = `https://amwayconnect${environment.toDashed().toLowerCase()}.${(environment === 'Production') ? 'okta' : 'oktapreview'}.com`;
+            let oktaOIDCClientID =
+                (environment === 'Test') ? 'I0QWrfrMwHi4m90W8aTd' :
+                (environment === 'QA') ? 'K3XJEJvFZrJC1Slu70bv' :
+                '';
 
-            let netConfigName = `${environment}${stage.toDashed()}`;
+            let netConfigName = `${environment}${stage.toDashed()}-${instance}`;
             let netSSOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/sso/saml?clientapp=demoapp-${instance.toLowerCase()}`;
             let netSLOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/slo/saml`;
+            let netColor =
+                (instance === 'Walter') ? 'green' :
+                (instance === 'TheDude') ? 'black' :
+                'red';
 
             let area = document.getElementById('area');
             let body = document.getElementsByTagName('body')[0];
@@ -115,8 +124,9 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 	    <add key="OktaOrg" value="${oktaOrg}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 		<add key="OktaLoginURL" value="${netSSOUrl}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 		<add key="OktaLogoutURL" value="${oktaOrg}/login/signout?fromURI=${encodeURIComponent(azureWebsiteName + '/Account/Logout')}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
+		<add key="OktaOIDCClientId" value="P5pHOfx9pmuJIbPLmj1g" />
 		<add key="ChangePasswordLink" value="${oktaRedirectUrl}/my-account/change-password" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
-		<add key="AppColor" value="black" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
+		<add key="AppColor" value="${netColor}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 	</appSettings>
 	<saml2>
 		<allowedAudienceUris>
@@ -125,7 +135,7 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 		<serviceProvider id="urn:SPName" server="https://www.example.com">
 			<signingCertificate findValue="E=brian.hibma@amway.com, C=US, CN=dotnet-demo-ca${(environment !== 'Test') ? environment.toDashed().toLowerCase() : ''}" storeLocation="CurrentUser" storeName="My" x509FindType="FindBySubjectDistinguishedName" xdt:Transform="SetAttributes(findValue)" />
 		</serviceProvider>
-		<identityProviders metadata="Config/${environment.toLowerCase()}-${instance.toLowerCase()}" xdt:Transform="SetAttributes">
+		<identityProviders metadata="Config/${environment.toLowerCase()}${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}" xdt:Transform="SetAttributes">
 			<!-- The 'id' value below must match the 'entityID' field of a metadata file below the path in the 'metadata' property in the parent XML config node  -->
 			<add id="http://www.okta.com/${oktaappid}" xdt:Transform="SetAttributes(id)">
 				<endpoints>

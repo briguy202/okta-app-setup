@@ -124,7 +124,7 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 	    <add key="OktaOrg" value="${oktaOrg}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 		<add key="OktaLoginURL" value="${netSSOUrl}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 		<add key="OktaLogoutURL" value="${oktaOrg}/login/signout?fromURI=${encodeURIComponent(azureWebsiteName + '/Account/Logout')}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
-		<add key="OktaOIDCClientId" value="P5pHOfx9pmuJIbPLmj1g" />
+		<add key="OktaOIDCClientId" value="${oktaOIDCClientID}" />
 		<add key="ChangePasswordLink" value="${oktaRedirectUrl}/my-account/change-password" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 		<add key="AppColor" value="${netColor}" xdt:Transform="SetAttributes(value)" xdt:Locator="Match(key)" />
 	</appSettings>

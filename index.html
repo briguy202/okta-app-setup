@@ -81,7 +81,7 @@
             let oktaEnvironmentDomain = (environment === 'Production') ? '' : environment;
             let oktaRedirectUrl =
                 (!stage && region === 'USEast1') ? `https://account${oktaEnvironmentDomain.toDashed().toLowerCase()}.amwayglobal.com` :
-                    `https://account-${locale.toLowerCase()}-${region.toLowerCase()}-${environment.toLowerCase()}${stage.toDashed().toLowerCase()}.preprod.corp.amway.net/`;
+                    `https://account-${locale.toLowerCase()}-${region.toLowerCase()}-${environment.toLowerCase()}${stage.toDashed().toLowerCase()}.preprod.corp.amway.net`;
             let oktaSAMLUrl = `${azureWebsiteName}/Login.ashx`;
             let oktaOrg = `https://amwayconnect${environment.toDashed().toLowerCase()}.${(environment === 'Production') ? 'okta' : 'oktapreview'}.com`;
             let oktaOIDCClientID =
@@ -100,28 +100,44 @@
                         'red';
 
             let netSolution = [];
+
+            let envirStageInstanceCombinations = [];
             parameters.environments.forEach(pEnvir => {
                 parameters.stages.forEach(pStage => {
                     parameters.instances.forEach(pInstance => {
-                        let valName = `${pEnvir}${pStage.toDashed()}-${pInstance}`;
-                        netSolution.push(`${valName}|Any CPU = ${valName}|Any CPU`);
+                        envirStageInstanceCombinations.push(`${pEnvir}${pStage.toDashed()}-${pInstance}`);
                     });
                 });
+            });
+
+            envirStageInstanceCombinations.forEach(valName => {
+                netSolution.push(`${valName}|Any CPU = ${valName}|Any CPU`);
             });
 
             ['B9A5209D-5A8A-455A-B9BD-37C8F8F98A93', 'BE54244E-28BC-4DA8-B296-4DF8F910D75F'].forEach(guid => {
                 netSolution.push('');
-                parameters.environments.forEach(pEnvir => {
-                    parameters.stages.forEach(pStage => {
-                        parameters.instances.forEach(pInstance => {
-                            let valName = `${pEnvir}${pStage.toDashed()}-${pInstance}`;
-                            netSolution.push(`{${guid}}.${valName}|Any CPU.ActiveCfg = ${valName}|Any CPU`);
-                            netSolution.push(`{${guid}}.${valName}|Any CPU.Build.0 = ${valName}|Any CPU`);
-                        });
-                    });
+                envirStageInstanceCombinations.forEach(valName => {
+                    netSolution.push(`{${guid}}.${valName}|Any CPU.ActiveCfg = ${valName}|Any CPU`);
+                    netSolution.push(`{${guid}}.${valName}|Any CPU.Build.0 = ${valName}|Any CPU`);
                 });
             });
 
+            let netProject = [];
+            envirStageInstanceCombinations.forEach(valName => {
+                netProject.push(`<Content Include="Config\\${valName.toLowerCase()}\\metadata" />`);
+            });
+            netProject.push('');
+            envirStageInstanceCombinations.forEach(valName => {
+                netProject.push(`  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '${valName}|AnyCPU'">
+    <OutputPath>bin\\</OutputPath>
+  </PropertyGroup>`);
+            });
+            netProject.push('');
+            envirStageInstanceCombinations.forEach(valName => {
+                netProject.push(`    <None Include="Web.${valName}.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>`);
+            });
 
             let area = document.getElementById('area');
             let body = document.getElementsByTagName('body')[0];
@@ -200,17 +216,16 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 		</serviceProvider>
 		<identityProviders metadata="Config/${environment.toLowerCase()}${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}" xdt:Transform="SetAttributes">
 			<!-- The 'id' value below must match the 'entityID' field of a metadata file below the path in the 'metadata' property in the parent XML config node  -->
-                    <add id="http://www.okta.com/${oktaappid}" xdt:Transform="SetAttributes(id)">
-                    <endpoints>
+            <add id="http://www.okta.com/${oktaappid}" xdt:Transform="SetAttributes(id)">
+                <endpoints>
                     <endpoint type="SignOn" url="${netSSOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
                     <endpoint type="Logout" url="${netSLOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
-                    </endpoints>
-                    </add>
-                    </identityProviders>
-                    </saml2>
-                    </configuration>
-                    `
-                ;
+                </endpoints>
+            </add>
+        </identityProviders>
+    </saml2>
+</configuration>
+`;
             let netMetadata = (!oktaappid) ? 'You must first set the okta app ID and URL values' :
                     `<?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/${oktaappid}"><md:IDPSSODescriptor WantAuthnRequestsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:X509Data><ds:X509Certificate>MIIDrjCCApagAwIBAgIGAVoqD3ZsMA0GCSqGSIb3DQEBBQUAMIGXMQswCQYDVQQGEwJVUzETMBEG
                 A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
@@ -237,6 +252,7 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
             //            document.getElementById('netMetadataArea').value = netMetadata;
             document.getElementById('netWebConfigFileName').innerText = netWebConfigFileName;
             document.getElementById('netSolution').innerText = netSolution.join('\n');
+            document.getElementById('netProject').innerText = netProject.join('\n');
         }
     </script>
 </head>
@@ -269,8 +285,11 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
     <!--<h2>.NET Metadata</h2>-->
     <!--<textarea id="netMetadataArea" rows="25" cols="150"></textarea>-->
 
-    <h2>Solution File</h2>
+    <h2>.NET Solution File</h2>
     <textarea id="netSolution" rows="25" cols="150"></textarea>
+
+    <h2>.NET Project File</h2>
+    <textarea id="netProject" rows="25" cols="150"></textarea>
 </div>
 </body>
 </html>

@@ -2,14 +2,40 @@
 <head>
     <script type="text/javascript">
         let fields = [
-            'environment',
-            'instance',
-            'locale',
-            'region',
-            'stage',
+            'environments',
+            'instances',
+            'locales',
+            'regions',
+            'stages',
             'oktaappid',
             'oktaappurl'
         ];
+
+        let parameters = {
+            environments: [
+                'Test',
+                'QA',
+                'Production'
+            ],
+            instances: [
+                'Walter',
+                'TheDude'
+            ],
+            locales: [
+                'Americas',
+                'Asia',
+                'Europe'
+            ],
+            regions: [
+                'USEast1',
+                'USWest2'
+            ],
+            stages: [
+                '',
+                'Blue1',
+                'Green1'
+            ]
+        };
 
         String.prototype.toDashed = function() {
             return (this.length) ? '-' + this : '';
@@ -19,6 +45,15 @@
             fields.forEach(elem => {
                 document.getElementById(elem).value = window.sessionStorage.getItem(elem);
             });
+
+            Object.keys(parameters).forEach(param => {
+                parameters[param].forEach(elem => {
+                    let option = document.createElement('option');
+                    option.innerText = elem;
+                    if (!document.getElementById(param)) throw new Error(`Unable to find element at '${param}'`);
+                    document.getElementById(param).appendChild(option);
+                });
+            });
         };
 
         function execute() {
@@ -26,11 +61,11 @@
                 window.sessionStorage.setItem(elem, document.getElementById(elem).value);
             });
 
-            let environment = document.getElementById('environment').value;
-            let instance = document.getElementById('instance').value;
-            let locale = document.getElementById('locale').value;
-            let region = document.getElementById('region').value;
-            let stage = document.getElementById('stage').value;
+            let environment = document.getElementById('environments').value;
+            let instance = document.getElementById('instances').value;
+            let locale = document.getElementById('locales').value;
+            let region = document.getElementById('regions').value;
+            let stage = document.getElementById('stages').value;
             let oktaappid = document.getElementById('oktaappid').value;
             let oktaappurl = document.getElementById('oktaappurl').value;
 
@@ -39,26 +74,54 @@
             let azureWebsiteName = `https://${azureName}.azurewebsites.net`;
             let azureCert =
                 (environment === 'Test') ? '04EE9975E7EEDB5749C3F13F546EB99611A853D9' :
-                (environment === 'QA') ? '6C0F5EA2F9FB716264040C39A4A2985D4F4FA49A' :
-                '';
+                    (environment === 'QA') ? '6C0F5EA2F9FB716264040C39A4A2985D4F4FA49A' :
+                        (environment === 'Production') ? '04EE9975E7EEDB5749C3F13F546EB99611A853D9' :
+                            '';
 
+            let oktaEnvironmentDomain = (environment === 'Production') ? '' : environment;
             let oktaRedirectUrl =
-                (!stage && region === 'USEast1') ? `https://account-${environment.toLowerCase()}.amwayglobal.com` :
+                (!stage && region === 'USEast1') ? `https://account${oktaEnvironmentDomain.toDashed().toLowerCase()}.amwayglobal.com` :
                     `https://account-${locale.toLowerCase()}-${region.toLowerCase()}-${environment.toLowerCase()}${stage.toDashed().toLowerCase()}.preprod.corp.amway.net/`;
             let oktaSAMLUrl = `${azureWebsiteName}/Login.ashx`;
             let oktaOrg = `https://amwayconnect${environment.toDashed().toLowerCase()}.${(environment === 'Production') ? 'okta' : 'oktapreview'}.com`;
             let oktaOIDCClientID =
                 (environment === 'Test') ? 'I0QWrfrMwHi4m90W8aTd' :
-                (environment === 'QA') ? 'K3XJEJvFZrJC1Slu70bv' :
-                '';
+                    (environment === 'QA') ? 'K3XJEJvFZrJC1Slu70bv' :
+                        (environment === 'Production') ? 'UjrSmih732E5esom6gar' :
+                            '';
 
+            let netWebConfigFileName = `Web.${environment}${stage.toDashed()}-${instance}.config`;
             let netConfigName = `${environment}${stage.toDashed()}-${instance}`;
             let netSSOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/sso/saml?clientapp=demoapp-${instance.toLowerCase()}`;
             let netSLOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/slo/saml`;
             let netColor =
                 (instance === 'Walter') ? 'green' :
-                (instance === 'TheDude') ? 'black' :
-                'red';
+                    (instance === 'TheDude') ? 'black' :
+                        'red';
+
+            let netSolution = [];
+            parameters.environments.forEach(pEnvir => {
+                parameters.stages.forEach(pStage => {
+                    parameters.instances.forEach(pInstance => {
+                        let valName = `${pEnvir}${pStage.toDashed()}-${pInstance}`;
+                        netSolution.push(`${valName}|Any CPU = ${valName}|Any CPU`);
+                    });
+                });
+            });
+
+            ['B9A5209D-5A8A-455A-B9BD-37C8F8F98A93', 'BE54244E-28BC-4DA8-B296-4DF8F910D75F'].forEach(guid => {
+                netSolution.push('');
+                parameters.environments.forEach(pEnvir => {
+                    parameters.stages.forEach(pStage => {
+                        parameters.instances.forEach(pInstance => {
+                            let valName = `${pEnvir}${pStage.toDashed()}-${pInstance}`;
+                            netSolution.push(`{${guid}}.${valName}|Any CPU.ActiveCfg = ${valName}|Any CPU`);
+                            netSolution.push(`{${guid}}.${valName}|Any CPU.Build.0 = ${valName}|Any CPU`);
+                        });
+                    });
+                });
+            });
+
 
             let area = document.getElementById('area');
             let body = document.getElementsByTagName('body')[0];
@@ -137,83 +200,77 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 		</serviceProvider>
 		<identityProviders metadata="Config/${environment.toLowerCase()}${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}" xdt:Transform="SetAttributes">
 			<!-- The 'id' value below must match the 'entityID' field of a metadata file below the path in the 'metadata' property in the parent XML config node  -->
-			<add id="http://www.okta.com/${oktaappid}" xdt:Transform="SetAttributes(id)">
-				<endpoints>
-					<endpoint type="SignOn" url="${netSSOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
-					<endpoint type="Logout" url="${netSLOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
-				</endpoints>
-			</add>
-		</identityProviders>
-	</saml2>
-</configuration>
-`;
-            let netMetadata = (!oktaappid) ? 'You must first set the okta app ID and URL values' : `<?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/${oktaappid}"><md:IDPSSODescriptor WantAuthnRequestsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:X509Data><ds:X509Certificate>MIIDrjCCApagAwIBAgIGAVoqD3ZsMA0GCSqGSIb3DQEBBQUAMIGXMQswCQYDVQQGEwJVUzETMBEG
-A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
-MBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVjdC1xYTEcMBoGCSqGSIb3
-DQEJARYNaW5mb0Bva3RhLmNvbTAeFw0xNzAyMTAyMjA0NDBaFw0yNzAyMTAyMjA1NDBaMIGXMQsw
-CQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzEN
-MAsGA1UECgwET2t0YTEUMBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVj
-dC1xYTEcMBoGCSqGSIb3DQEJARYNaW5mb0Bva3RhLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEP
-ADCCAQoCggEBAOWoJBFSHnrJvVKacHUCPqsz0QDUHL8cDhGFJtp5fh4CkPtmoshDLyxbfrayZWDb
-68vxRN3NQJOoMXSgONKhDBllxLBNam+X//Wt57eAUitX66IKiDEdK48c4ivtXsS+GY7srX37f2uC
-PsLM+BU+3dMrd8/LKHMcU/lVdDbZMuVUq3IN7SW+2mEzU5yWtAwzM7MvKxv3PmxYp0uP7mEEfAqZ
-H5HkdChwItisvAuoGKgpaz9wfIH71xYlvZVEzDzt0H8PPbLz1GSzkFSeTdTNNcVX+5xWO73s4Iym
-8xIqBXSDx4WRaMtUFiPfC9hm9g7gijnE+loXbsrYPdYb97GFPAkCAwEAATANBgkqhkiG9w0BAQUF
-AAOCAQEAFT2Hl6YWdYlllZn1mLTPHbDAiHPfSdFywWZF0XiNMPRtuwcFmKp86VOTYjiafEZFR5qp
-R91OK8Ci7Iu4Uwcq4QaSDYXTGIlivsFRAmxsCRAQKwoeQMy4tKEyWOgUMpEF7qkie9wX9OnooEbJ
-AxaDZZUCZ8yaU6hgeYAT7Kofhb+A5sJkZMoWHOd2db0mnTiss7j9Pdo1jAXfgB+XzNnLCdkXHx5H
-imYcNtbbu0r6kEgWrr++9+butcCXAp1qdG+MfxcuVLvR5uaPM+PdHTain/CX6Y7AunCNWYl+6Qnz
-iRa1lzQuQVTSg5dticjr2OzZh+e9nHiwjC/Xi4kug0HnGA==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSLOUrl}"/><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSLOUrl}"/><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSSOUrl}"/><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSSOUrl}"/></md:IDPSSODescriptor></md:EntityDescriptor>`;
+                    <add id="http://www.okta.com/${oktaappid}" xdt:Transform="SetAttributes(id)">
+                    <endpoints>
+                    <endpoint type="SignOn" url="${netSSOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
+                    <endpoint type="Logout" url="${netSLOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
+                    </endpoints>
+                    </add>
+                    </identityProviders>
+                    </saml2>
+                    </configuration>
+                    `
+                ;
+            let netMetadata = (!oktaappid) ? 'You must first set the okta app ID and URL values' :
+                    `<?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/${oktaappid}"><md:IDPSSODescriptor WantAuthnRequestsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:X509Data><ds:X509Certificate>MIIDrjCCApagAwIBAgIGAVoqD3ZsMA0GCSqGSIb3DQEBBQUAMIGXMQswCQYDVQQGEwJVUzETMBEG
+                A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
+                MBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVjdC1xYTEcMBoGCSqGSIb3
+                DQEJARYNaW5mb0Bva3RhLmNvbTAeFw0xNzAyMTAyMjA0NDBaFw0yNzAyMTAyMjA1NDBaMIGXMQsw
+                CQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzEN
+                MAsGA1UECgwET2t0YTEUMBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVj
+                dC1xYTEcMBoGCSqGSIb3DQEJARYNaW5mb0Bva3RhLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEP
+                ADCCAQoCggEBAOWoJBFSHnrJvVKacHUCPqsz0QDUHL8cDhGFJtp5fh4CkPtmoshDLyxbfrayZWDb
+                68vxRN3NQJOoMXSgONKhDBllxLBNam+X//Wt57eAUitX66IKiDEdK48c4ivtXsS+GY7srX37f2uC
+                PsLM+BU+3dMrd8/LKHMcU/lVdDbZMuVUq3IN7SW+2mEzU5yWtAwzM7MvKxv3PmxYp0uP7mEEfAqZ
+                H5HkdChwItisvAuoGKgpaz9wfIH71xYlvZVEzDzt0H8PPbLz1GSzkFSeTdTNNcVX+5xWO73s4Iym
+                8xIqBXSDx4WRaMtUFiPfC9hm9g7gijnE+loXbsrYPdYb97GFPAkCAwEAATANBgkqhkiG9w0BAQUF
+                AAOCAQEAFT2Hl6YWdYlllZn1mLTPHbDAiHPfSdFywWZF0XiNMPRtuwcFmKp86VOTYjiafEZFR5qp
+                R91OK8Ci7Iu4Uwcq4QaSDYXTGIlivsFRAmxsCRAQKwoeQMy4tKEyWOgUMpEF7qkie9wX9OnooEbJ
+                AxaDZZUCZ8yaU6hgeYAT7Kofhb+A5sJkZMoWHOd2db0mnTiss7j9Pdo1jAXfgB+XzNnLCdkXHx5H
+                imYcNtbbu0r6kEgWrr++9+butcCXAp1qdG+MfxcuVLvR5uaPM+PdHTain/CX6Y7AunCNWYl+6Qnz
+                iRa1lzQuQVTSg5dticjr2OzZh+e9nHiwjC/Xi4kug0HnGA==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSLOUrl}"/><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSLOUrl}"/><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSSOUrl}"/><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSSOUrl}"/></md:IDPSSODescriptor></md:EntityDescriptor>`
+                ;
 
             document.getElementById('oktaArea').value = oktaTemplate;
             document.getElementById('azureArea').value = azureTemlate;
             document.getElementById('netWebConfigArea').value = netWebConfigTemplate;
-            document.getElementById('netMetadataArea').value = netMetadata;
-
+            //            document.getElementById('netMetadataArea').value = netMetadata;
+            document.getElementById('netWebConfigFileName').innerText = netWebConfigFileName;
+            document.getElementById('netSolution').innerText = netSolution.join('\n');
         }
     </script>
 </head>
 <body style="margin: 15px;">
 <div>
-    <p>Environment: <select id="environment">
-        <option>Test</option>
-        <option>QA</option>
-        <option>Production</option>
-    </select></p>
-    <p>Instance: <select id="instance">
-        <option>Walter</option>
-        <option>TheDude</option>
-    </select></p>
-    <p>Locale: <select id="locale">
-        <option>Americas</option>
-        <option>Asia</option>
-        <option>Europe</option>
-    </select></p>
-    <p>Region: <select id="region">
-        <option>USEast1</option>
-        <option>USWest2</option>
-    </select></p>
-    <p>Stage: <select id="stage">
-        <option></option>
-        <option>Blue1</option>
-        <option>Green1</option>
-    </select></p>
-    <p>Okta App ID: <input id="oktaappid" type="text"/></p>
+    <p>Environment: <select id="environments"></select></p>
+    <p>Instance: <select id="instances"></select></p>
+    <p>Locale: <select id="locales"></select></p>
+    <p>Region: <select id="regions"></select></p>
+    <p>Stage: <select id="stages"></select></p>
     <p>Okta App URL Value: <input id="oktaappurl" type="text"/></p>
+    <p>Okta App ID: <input id="oktaappid" type="text"/></p>
     <button onclick="execute()">Submit</button>
 
     <h2>Okta App Setup</h2>
-    <p>Following Okta app creation, you must still setup the single logout configuration and certificate as well as the Okta groups configuration.  Also note the app ID which is needed for the .NET configuration.</p>
+    <p>Following Okta app creation, you must still perform the following steps:</p>
+    <ul>
+        <li>Setup the single logout configuration and certificate.</li>
+        <li>Setup the Okta groups configuration (assign to 'Everyone' and the 'Connect ID' group).</li>
+        <li>Note the app ID which is needed for the .NET configuration below.</li>
+    </ul>
     <textarea id="oktaArea" rows="25" cols="150"></textarea>
 
     <h2>Azure Setup</h2>
     <textarea id="azureArea" rows="10" cols="150"></textarea>
 
-    <h2>.NET Setup</h2>
+    <h2>.NET Setup - Config Filename: <span id="netWebConfigFileName"></span></h2>
     <textarea id="netWebConfigArea" rows="25" cols="150"></textarea>
 
-    <h2>.NET Metadata</h2>
-    <textarea id="netMetadataArea" rows="25" cols="150"></textarea>
+    <!--<h2>.NET Metadata</h2>-->
+    <!--<textarea id="netMetadataArea" rows="25" cols="150"></textarea>-->
+
+    <h2>Solution File</h2>
+    <textarea id="netSolution" rows="25" cols="150"></textarea>
 </div>
 </body>
 </html>

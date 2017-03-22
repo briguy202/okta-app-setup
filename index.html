@@ -56,6 +56,14 @@
             });
         };
 
+        function getAzureName(environment, stage, instance) {
+            return `amway-demo-${environment.toLowerCase()}${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}`;
+        }
+
+        function getAzureWebsiteName(environment, stage, instance) {
+            return `https://${getAzureName(environment, stage, instance)}.azurewebsites.net`;
+        }
+
         function execute() {
             fields.forEach(elem => {
                 window.sessionStorage.setItem(elem, document.getElementById(elem).value);
@@ -70,8 +78,8 @@
             let oktaappurl = document.getElementById('oktaappurl').value;
 
             let azureResourceGroup = `SSODemoApp-${environment}`;
-            let azureName = `amway-demo-${environment.toLowerCase()}${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}`;
-            let azureWebsiteName = `https://${azureName}.azurewebsites.net`;
+            let azureName = getAzureName(environment, stage, instance);
+            let azureWebsiteName = getAzureWebsiteName(environment, stage, instance);
             let azureCert =
                 (environment === 'Test') ? '04EE9975E7EEDB5749C3F13F546EB99611A853D9' :
                     (environment === 'QA') ? '6C0F5EA2F9FB716264040C39A4A2985D4F4FA49A' :
@@ -92,7 +100,7 @@
 
             let netWebConfigFileName = `Web.${environment}${stage.toDashed()}-${instance}.config`;
             let netConfigName = `${environment}${stage.toDashed()}-${instance}`;
-            let netSSOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/sso/saml?clientapp=demoapp-${instance.toLowerCase()}`;
+            let netSSOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/sso/saml?clientapp=demoapp${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}`;
             let netSLOUrl = `${oktaOrg}/app/${oktaappurl}/${oktaappid}/slo/saml`;
             let netColor =
                 (instance === 'Walter') ? 'green' :
@@ -102,12 +110,20 @@
             let netSolution = [];
 
             let envirStageInstanceCombinations = [];
+            let allCombinations = [];
+            let envirSet = false;
             parameters.environments.forEach(pEnvir => {
                 parameters.stages.forEach(pStage => {
                     parameters.instances.forEach(pInstance => {
                         envirStageInstanceCombinations.push(`${pEnvir}${pStage.toDashed()}-${pInstance}`);
+                        allCombinations.push({
+                            environment: pEnvir,
+                            stage: pStage,
+                            instance: pInstance
+                        })
                     });
                 });
+                envirSet = true;
             });
 
             envirStageInstanceCombinations.forEach(valName => {
@@ -141,6 +157,18 @@
 
             let area = document.getElementById('area');
             let body = document.getElementsByTagName('body')[0];
+
+            let appConfig = [];
+            allCombinations.forEach(value => {
+                if (value.environment === environment) {
+                    let azureName = getAzureWebsiteName(value.environment, value.stage, value.instance)
+                    appConfig.push(`    "demoapp${value.stage.toDashed().toLowerCase()}-${value.instance.toLowerCase()}": {
+      "cancelURL": "${azureName}",
+      "alternateLoginURL": "${azureName}/Home/About?fromURI={0}",
+      "allowConsumerFlow": ${value.instance === 'TheDude'}
+    },`);
+                }
+            });
 
             let oktaTemplate = `{
   "label": "DemoApp - ${environment}${stage.toDashed()} - ${instance}",
@@ -216,34 +244,36 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 		</serviceProvider>
 		<identityProviders metadata="Config/${environment.toLowerCase()}${stage.toDashed().toLowerCase()}-${instance.toLowerCase()}" xdt:Transform="SetAttributes">
 			<!-- The 'id' value below must match the 'entityID' field of a metadata file below the path in the 'metadata' property in the parent XML config node  -->
-            <add id="http://www.okta.com/${oktaappid}" xdt:Transform="SetAttributes(id)">
+                <add id="http://www.okta.com/$\{oktaappid\}" xdt:Transform="SetAttributes(id)">
                 <endpoints>
-                    <endpoint type="SignOn" url="${netSSOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
-                    <endpoint type="Logout" url="${netSLOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
+                <endpoint type="SignOn" url="${netSSOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
+                <endpoint type="Logout" url="${netSLOUrl}" binding="Post" xdt:Transform="Replace" xdt:Locator="Match(type)" />
                 </endpoints>
-            </add>
-        </identityProviders>
-    </saml2>
-</configuration>
-`;
+                </add>
+                </identityProviders>
+                </saml2>
+                </configuration>`
+                ;
             let netMetadata = (!oktaappid) ? 'You must first set the okta app ID and URL values' :
+
                     `<?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="http://www.okta.com/${oktaappid}"><md:IDPSSODescriptor WantAuthnRequestsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:X509Data><ds:X509Certificate>MIIDrjCCApagAwIBAgIGAVoqD3ZsMA0GCSqGSIb3DQEBBQUAMIGXMQswCQYDVQQGEwJVUzETMBEG
-                A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
-                MBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVjdC1xYTEcMBoGCSqGSIb3
-                DQEJARYNaW5mb0Bva3RhLmNvbTAeFw0xNzAyMTAyMjA0NDBaFw0yNzAyMTAyMjA1NDBaMIGXMQsw
-                CQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzEN
-                MAsGA1UECgwET2t0YTEUMBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVj
-                dC1xYTEcMBoGCSqGSIb3DQEJARYNaW5mb0Bva3RhLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEP
-                ADCCAQoCggEBAOWoJBFSHnrJvVKacHUCPqsz0QDUHL8cDhGFJtp5fh4CkPtmoshDLyxbfrayZWDb
-                68vxRN3NQJOoMXSgONKhDBllxLBNam+X//Wt57eAUitX66IKiDEdK48c4ivtXsS+GY7srX37f2uC
-                PsLM+BU+3dMrd8/LKHMcU/lVdDbZMuVUq3IN7SW+2mEzU5yWtAwzM7MvKxv3PmxYp0uP7mEEfAqZ
-                H5HkdChwItisvAuoGKgpaz9wfIH71xYlvZVEzDzt0H8PPbLz1GSzkFSeTdTNNcVX+5xWO73s4Iym
-                8xIqBXSDx4WRaMtUFiPfC9hm9g7gijnE+loXbsrYPdYb97GFPAkCAwEAATANBgkqhkiG9w0BAQUF
-                AAOCAQEAFT2Hl6YWdYlllZn1mLTPHbDAiHPfSdFywWZF0XiNMPRtuwcFmKp86VOTYjiafEZFR5qp
-                R91OK8Ci7Iu4Uwcq4QaSDYXTGIlivsFRAmxsCRAQKwoeQMy4tKEyWOgUMpEF7qkie9wX9OnooEbJ
-                AxaDZZUCZ8yaU6hgeYAT7Kofhb+A5sJkZMoWHOd2db0mnTiss7j9Pdo1jAXfgB+XzNnLCdkXHx5H
-                imYcNtbbu0r6kEgWrr++9+butcCXAp1qdG+MfxcuVLvR5uaPM+PdHTain/CX6Y7AunCNWYl+6Qnz
-                iRa1lzQuQVTSg5dticjr2OzZh+e9nHiwjC/Xi4kug0HnGA==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSLOUrl}"/><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSLOUrl}"/><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSSOUrl}"/><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSSOUrl}"/></md:IDPSSODescriptor></md:EntityDescriptor>`
+            A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
+            MBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVjdC1xYTEcMBoGCSqGSIb3
+            DQEJARYNaW5mb0Bva3RhLmNvbTAeFw0xNzAyMTAyMjA0NDBaFw0yNzAyMTAyMjA1NDBaMIGXMQsw
+            CQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzEN
+            MAsGA1UECgwET2t0YTEUMBIGA1UECwwLU1NPUHJvdmlkZXIxGDAWBgNVBAMMD2Ftd2F5Y29ubmVj
+            dC1xYTEcMBoGCSqGSIb3DQEJARYNaW5mb0Bva3RhLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEP
+            ADCCAQoCggEBAOWoJBFSHnrJvVKacHUCPqsz0QDUHL8cDhGFJtp5fh4CkPtmoshDLyxbfrayZWDb
+            68vxRN3NQJOoMXSgONKhDBllxLBNam+X//Wt57eAUitX66IKiDEdK48c4ivtXsS+GY7srX37f2uC
+            PsLM+BU+3dMrd8/LKHMcU/lVdDbZMuVUq3IN7SW+2mEzU5yWtAwzM7MvKxv3PmxYp0uP7mEEfAqZ
+            H5HkdChwItisvAuoGKgpaz9wfIH71xYlvZVEzDzt0H8PPbLz1GSzkFSeTdTNNcVX+5xWO73s4Iym
+            8xIqBXSDx4WRaMtUFiPfC9hm9g7gijnE+loXbsrYPdYb97GFPAkCAwEAATANBgkqhkiG9w0BAQUF
+            AAOCAQEAFT2Hl6YWdYlllZn1mLTPHbDAiHPfSdFywWZF0XiNMPRtuwcFmKp86VOTYjiafEZFR5qp
+            R91OK8Ci7Iu4Uwcq4QaSDYXTGIlivsFRAmxsCRAQKwoeQMy4tKEyWOgUMpEF7qkie9wX9OnooEbJ
+            AxaDZZUCZ8yaU6hgeYAT7Kofhb+A5sJkZMoWHOd2db0mnTiss7j9Pdo1jAXfgB+XzNnLCdkXHx5H
+            imYcNtbbu0r6kEgWrr++9+butcCXAp1qdG+MfxcuVLvR5uaPM+PdHTain/CX6Y7AunCNWYl+6Qnz
+            iRa1lzQuQVTSg5dticjr2OzZh+e9nHiwjC/Xi4kug0HnGA==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSLOUrl}"/><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSLOUrl}"/><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${netSSOUrl}"/><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="${netSSOUrl}"/></md:IDPSSODescriptor></md:EntityDescriptor>`
+
                 ;
 
             document.getElementById('oktaArea').value = oktaTemplate;
@@ -253,6 +283,7 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
             document.getElementById('netWebConfigFileName').innerText = netWebConfigFileName;
             document.getElementById('netSolution').innerText = netSolution.join('\n');
             document.getElementById('netProject').innerText = netProject.join('\n');
+            document.getElementById('appConfig').innerText = appConfig.join('\n');
         }
     </script>
 </head>
@@ -290,6 +321,9 @@ azure webapp config appsettings set ${azureResourceGroup} ${azureName} SCM_BUILD
 
     <h2>.NET Project File</h2>
     <textarea id="netProject" rows="25" cols="150"></textarea>
+
+    <h2>App config files</h2>
+    <textarea id="appConfig" rows="25" cols="150"></textarea>
 </div>
 </body>
 </html>
